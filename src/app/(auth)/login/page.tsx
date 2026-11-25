@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowRight, ChefHat, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { dataMode } from "@/services/api";
 import { ApiError } from "@/types/api";
-import { QuerySkeleton } from "@/components/shared/QueryState";
+import { WorkspaceLoading } from "@/components/shared/WorkspaceLoading";
 import { ResetDemoDialog } from "@/components/shared/ResetDemoDialog";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { useAuth } from "@/providers/auth-provider";
@@ -38,6 +39,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [banner, setBanner] = useState("");
+  const [pending, setPending] = useState<"form" | Role | null>(null);
   const {
     register,
     handleSubmit,
@@ -59,6 +61,8 @@ export default function Login() {
     if (ready && user) router.replace("/billing");
   }, [ready, user, router]);
   async function demo(role: Role) {
+    if (pending) return;
+    setPending(role);
     const username = {
       ADMIN: "admin",
       BILLING: "cashier",
@@ -69,17 +73,21 @@ export default function Login() {
       await login(username, "demo");
       router.replace("/billing");
     } catch {
+      setPending(null);
       setError(
         "Demo login failed. The account may be inactive or its credentials changed.",
       );
     }
   }
   async function submit(values: Values) {
+    if (pending) return;
+    setPending("form");
     try {
       setError("");
       await login(values.username, values.password);
       router.replace("/billing");
     } catch (error) {
+      setPending(null);
       setError(
         error instanceof ApiError && (error.status === 0 || error.status >= 500)
           ? "Could not reach the server. Check your connection and try again."
@@ -88,18 +96,21 @@ export default function Login() {
     }
   }
   if (!ready || user)
-    return (
-      <div className="grid min-h-dvh place-items-center bg-background">
-        <QuerySkeleton />
-      </div>
-    );
+    return <WorkspaceLoading message={user ? "Opening workspace..." : "Loading workspace..."} />;
   return (
     <main className="min-h-dvh bg-background px-4 py-8 text-foreground sm:px-6">
       <OfflineBanner />
       <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-md flex-col justify-center">
         <div className="mb-7 flex items-center justify-center gap-3 text-lg font-bold">
-          <span className="grid size-11 place-items-center rounded-xl bg-primary text-white shadow-md">
-            <ChefHat size={22} />
+          <span className="relative grid size-12 place-items-center overflow-hidden rounded-2xl border border-border/60 bg-muted/30 shadow-md">
+            <Image
+              src="/images/Sambar&SpicyRestaurantLogo.png"
+              alt="Sambar & Spicy Logo"
+              width={48}
+              height={48}
+              className="size-full object-cover"
+              priority
+            />
           </span>
           <span>Sambar &amp; Spicy</span>
         </div>
@@ -174,9 +185,10 @@ export default function Login() {
                   {error}
                 </Alert>
               )}
-              <Button type="submit" size="lg" className="w-full">
-                Sign in <ArrowRight size={17} />
+              <Button type="submit" size="lg" className="w-full" disabled={pending !== null} aria-busy={pending === "form"}>
+                {pending === "form" ? <><LoaderCircle size={17} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> Signing in...</> : <>Sign in <ArrowRight size={17} aria-hidden="true" /></>}
               </Button>
+              <span className="sr-only" role="status">{pending === "form" ? "Signing in, please wait." : ""}</span>
             </form>
             {dataMode === "mock" && (
               <div className="mt-6 border-t border-border pt-5">
@@ -191,9 +203,10 @@ export default function Login() {
                     variant="outline"
                     className="h-auto min-h-16 flex-col gap-1 whitespace-normal"
                     aria-label="Admin"
+                    disabled={pending !== null}
                     onClick={() => void demo("ADMIN")}
                   >
-                    <strong>Admin</strong>
+                    <strong>{pending === "ADMIN" ? "Signing in..." : "Admin"}</strong>
                     <small>Store Admin</small>
                     <span className="text-xs font-normal text-muted-foreground">
                       Full access
@@ -203,9 +216,10 @@ export default function Login() {
                     variant="outline"
                     className="h-auto min-h-16 flex-col gap-1 whitespace-normal"
                     aria-label="Billing"
+                    disabled={pending !== null}
                     onClick={() => void demo("BILLING")}
                   >
-                    <strong>Billing</strong>
+                    <strong>{pending === "BILLING" ? "Signing in..." : "Billing"}</strong>
                     <small>Counter Cashier</small>
                     <span className="text-xs font-normal text-muted-foreground">
                       Billing only
@@ -215,9 +229,10 @@ export default function Login() {
                     variant="outline"
                     className="h-auto min-h-16 flex-col gap-1 whitespace-normal"
                     aria-label="Read only"
+                    disabled={pending !== null}
                     onClick={() => void demo("READ_ONLY")}
                   >
-                    <strong>Read only</strong>
+                    <strong>{pending === "READ_ONLY" ? "Signing in..." : "Read only"}</strong>
                     <small>Account Viewer</small>
                     <span className="text-xs font-normal text-muted-foreground">
                       View access

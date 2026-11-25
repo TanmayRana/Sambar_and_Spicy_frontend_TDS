@@ -11,7 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { Sidebar, links } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RoleGate } from "@/components/layout/role-gate";
-import { QuerySkeleton } from "@/components/shared/QueryState";
+import { WorkspaceLoading } from "@/components/shared/WorkspaceLoading";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { cn } from "@/lib/utils";
 
@@ -24,11 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (ready && !user) router.replace("/login");
   }, [ready, user, router]);
   if (!ready || !user)
-    return (
-      <div className="grid min-h-dvh place-items-center bg-background">
-        <QuerySkeleton />
-      </div>
-    );
+    return <WorkspaceLoading />;
   const title =
     links.find((link) => link.href === pathname)?.label ?? "Workspace";
   return (

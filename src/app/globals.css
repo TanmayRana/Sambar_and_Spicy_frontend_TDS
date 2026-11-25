@@ -94,43 +94,48 @@ button:not(:disabled) {
     scroll-behavior: smooth;
   }
 }
+:focus {
+  outline: none;
+}
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none !important;
+}
 
 html,
-.pos-scroll {
+* {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--primary) 35%, var(--input)) transparent;
+  scrollbar-color: transparent transparent;
 }
 html::-webkit-scrollbar,
-.pos-scroll::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 html::-webkit-scrollbar-thumb,
-.pos-scroll::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   border-radius: 99px;
-  background: color-mix(in srgb, var(--primary) 35%, var(--input));
-}
-html::-webkit-scrollbar-track {
   background: transparent;
 }
-
-.filter-scroll {
-  scrollbar-width: thin;
+html::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+html.is-scrolling,
+*.is-scrolling {
   scrollbar-color: color-mix(in srgb, var(--primary) 35%, var(--input)) transparent;
 }
-.filter-scroll::-webkit-scrollbar {
-  height: 4px;
-}
-.filter-scroll::-webkit-scrollbar-thumb {
-  border-radius: 999px;
+html.is-scrolling::-webkit-scrollbar-thumb,
+*.is-scrolling::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--primary) 35%, var(--input));
-}
-.filter-scroll::-webkit-scrollbar-track {
-  background: transparent;
 }
 .mouse-drag-scroll[data-mouse-dragging="true"] {
   cursor: grabbing;
@@ -197,18 +202,18 @@ html::-webkit-scrollbar-track {
   }
 }
 
-/* Receipt paper remains white in both themes and in the print copy. */
+/* Receipt paper remains white in both themes and matches the 58mm RawBT receipt layout (48mm print width, 1.5mm margins). */
 .receipt-paper {
   position: relative;
   width: 100%;
-  max-width: 100%;
+  max-width: 48mm;
+  box-sizing: border-box;
   margin: auto;
-  padding: 2mm;
+  padding: 1.5mm;
   background: #fff !important;
   color: #000 !important;
   font-family: Arial, sans-serif;
-  /* Previous receipt font-size: 12px; */
-  font-size: 14px;
+  font-size: 9.5px;
   font-weight: 400;
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
@@ -219,10 +224,10 @@ html::-webkit-scrollbar-track {
 }
 .receipt-logo {
   display: block;
-  width: 48mm;
+  width: 32.5mm;
   max-width: 100%;
   height: auto;
-  margin: 0 auto 3px;
+  margin: 0 auto 2px;
   color: #000;
 }
 .receipt-store h2 {
@@ -236,26 +241,31 @@ html::-webkit-scrollbar-track {
 .receipt-store p,
 .receipt-meta p,
 .receipt-paper footer p {
-  margin: 2px 0;
+  margin: 1px 0;
 }
 .receipt-store p:not(.receipt-reprint) {
+  font-size: 8px;
+  line-height: 1.25;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 .receipt-reprint {
-  display: inline-block;
-  border: 1px solid #111;
-  padding: 2px 5px;
+  margin: 0 0 2px;
+  font-size: 9.5px;
   font-weight: 700;
+  text-align: center;
 }
 .receipt-meta {
-  margin: 7px 0;
-  padding: 6px 0;
+  margin: 0;
+  padding: 0;
+  font-size: 9.5px;
+  line-height: 1.25;
 }
 .receipt-rule {
   display: block;
   width: 100%;
-  height: 3px;
+  height: 2px;
+  margin: 1.5px 0 3px;
   color: #000;
 }
 .receipt-paper th.receipt-rule-cell {
@@ -263,65 +273,102 @@ html::-webkit-scrollbar-track {
 }
 .receipt-paper table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 .receipt-paper th {
-  padding: 4px 2px;
-  text-align: left;
+  padding: 1px 0 2px;
+  font-size: 8px;
+  line-height: 1.25;
+  font-weight: 700;
 }
 .receipt-paper td {
-  padding: 4px 2px;
+  padding: 1.5px 0;
   vertical-align: top;
+  font-size: 8px;
+  line-height: 1.25;
 }
+.receipt-paper th:first-child,
 .receipt-paper td:first-child {
-  overflow-wrap: anywhere;
+  width: 42%;
+  text-align: left;
+  padding-right: 2px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .receipt-paper th:nth-child(2),
-.receipt-paper td:nth-child(2),
+.receipt-paper td:nth-child(2) {
+  width: 31%;
+  text-align: right;
+  padding-right: 4px;
+  white-space: nowrap;
+}
 .receipt-paper th:last-child,
 .receipt-paper td:last-child {
-  padding-left: 5px;
+  width: 27%;
   text-align: right;
   white-space: nowrap;
 }
 .receipt-totals {
-  margin-top: 5px;
-  padding-top: 4px;
-  /* Previous totals font-size: 13px; */
-  font-size: 15px;
+  margin: 0;
+  padding: 0;
+  font-size: 9.5px;
+  line-height: 1.25;
   font-weight: 700;
 }
 .receipt-totals p {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  padding: 3px 2px;
+  padding: 1px 0;
 }
 .receipt-total {
-  margin-top: 4px !important;
-  padding: 5px 2px !important;
-  /* Previous total font-size: 19px; */
-  font-size: 21px;
+  margin: 0 !important;
+  padding: 1.5px 0 !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
 }
 .receipt-payment {
-  margin: 6px 0 0;
-  padding: 4px 0 6px;
+  margin: 0;
+  padding: 1px 0;
+  font-size: 9.5px;
   font-weight: 700;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .receipt-paper footer {
-  margin-top: 7px;
+  margin-top: 2px;
   text-align: center;
+  font-size: 9.5px;
+  line-height: 1.25;
   font-weight: 700;
 }
 .receipt-paper footer p + p {
-  margin-top: 4px;
+  margin-top: 1.5px;
 }
 .receipt-stars {
   letter-spacing: 1px;
   overflow: hidden;
   white-space: nowrap;
+}
+.receipt-paper[data-receipt-mode="raster"] > :not(.receipt-raster) {
+  display: none !important;
+}
+.receipt-paper[data-receipt-mode="raster"] {
+  padding: 0 !important;
+}
+.receipt-raster,
+.receipt-raster-preview {
+  display: block;
+  width: 48mm;
+  max-width: 100%;
+  height: auto;
+}
+[data-preview-raster="true"] .receipt-paper {
+  display: none;
 }
 .receipt-print-root {
   display: none;
@@ -370,8 +417,18 @@ html::-webkit-scrollbar-track {
     break-inside: auto;
   }
   html[data-receipt-print="thermal"] .receipt-print-root .receipt-paper {
-    width: 100%;
-    max-width: 100%;
+    width: 100% !important;
+    max-width: 48mm !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+    padding: 1.5mm !important;
+    font-size: 9.5px !important;
+    line-height: 1.25 !important;
+    font-family: Arial, sans-serif !important;
+  }
+  html[data-receipt-print="thermal"] .receipt-print-root .receipt-paper[data-receipt-mode="raster"] {
+    padding: 0 !important;
   }
   html[data-receipt-print] .receipt-print-root tr {
     break-inside: avoid;

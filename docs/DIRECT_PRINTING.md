@@ -17,7 +17,7 @@ The normal browser print dialog still appears if the app is opened without the l
 ## Android with RawBT
 
 1. Install RawBT, pair the thermal printer, and configure and test it in RawBT. The printer must support the ESC/POS GS v 0 raster command. The receipt uses a 384-dot (58 mm) print width.
-2. Open the billing app on the Android device. After payment or when reprinting, choose **Open RawBT**; the receipt is sent as printer commands without a browser print preview. Choose **Browser print** if you need the Android system print dialog instead.
+2. Open the billing app on the Android device. After payment or when reprinting, the app sends the receipt directly to RawBT without a printer-choice dialog or browser print preview.
 3. RawBT or Android may still ask for permission or a printer confirmation, depending on their settings. The browser cannot verify whether RawBT opened or the printer produced paper; if necessary, check the printer and retry or use bill history.
 
 RawBT controls its own printout notification: its Google Play listing says the licensed version removes it. This website cannot remove a mark added by RawBT or a printer driver.

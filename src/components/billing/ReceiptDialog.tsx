@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,8 +11,21 @@ import {
 import type { BillDetail, UserRole } from "@/types/domain";
 import { useStoreSettings } from "@/hooks/queries";
 import { ReceiptTemplate } from "./ReceiptTemplate";
-import { rawBtReceiptUrl } from "@/lib/rawbt-receipt";
+import { rawBtReceiptPng, rawBtReceiptUrl } from "@/lib/rawbt-receipt";
 let previousPrintCleanup: (() => void) | null = null;
+
+async function buildReceiptRasterPng(
+  bill: BillDetail,
+  footer: string | null | undefined,
+  isReprint: boolean,
+): Promise<string | null> {
+  if (typeof Image === "undefined") return null;
+  const logo = new Image();
+  logo.src = "/images/receipt-logo.png";
+  if (typeof logo.decode !== "function") return null;
+  await logo.decode();
+  return rawBtReceiptPng(bill, footer, isReprint, logo);
+}
 
 export function ReceiptDialog({
   bill,
@@ -20,6 +34,7 @@ export function ReceiptDialog({
   isReprint,
   role,
   onLogReprint,
+  preview = false,
 }: {
   bill: BillDetail | null;
   open: boolean;
@@ -27,6 +42,7 @@ export function ReceiptDialog({
   isReprint: boolean;
   role: UserRole;
   onLogReprint: (id: number) => Promise<void>;
+  preview?: boolean;
 }) {
   const settings = useStoreSettings(open);
   const receipt = useRef<HTMLDivElement>(null);
@@ -36,8 +52,29 @@ export function ReceiptDialog({
   const preparationVersion = useRef(0);
   const [error, setError] = useState("");
   const [printing, setPrinting] = useState(false);
-  const [androidJob, setAndroidJob] = useState<{ bill: BillDetail; reprint: boolean; url: string } | null>(null);
-  const [androidPreparing, setAndroidPreparing] = useState<{ bill: BillDetail; reprint: boolean } | null>(null);
+  const [previewRaster, setPreviewRaster] = useState<{
+    key: string;
+    src: string;
+  } | null>(null);
+  const footerText = settings.data
+    ? settings.data.receipt_footer
+    : "Thank you for visiting! Come again.";
+  const previewKey = bill
+    ? `${bill.id}:${isReprint}:${footerText ?? ""}`
+    : "";
+
+  useEffect(() => {
+    if (!open || !preview || !bill || settings.isLoading) return;
+    let cancelled = false;
+    void buildReceiptRasterPng(bill, footerText, isReprint)
+      .then((src) => {
+        if (!cancelled && src) setPreviewRaster({ key: previewKey, src });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, preview, bill, footerText, isReprint, settings.isLoading, previewKey]);
 
   const print = useCallback(async () => {
     if (!bill || inFlight.current) return;
@@ -126,7 +163,7 @@ export function ReceiptDialog({
               // The receipt is hidden until print, so explicitly load its local font first.
               if (printDocument.fonts) await printDocument.fonts.load('30px "Receipt Lobster"');
               const logo = copy.querySelector(".receipt-logo") as HTMLImageElement | null;
-              if (logo) await logo.decode();
+              if (logo && typeof logo.decode === "function") await logo.decode();
             }),
             new Promise<void>((_, reject) => {
               styleTimeout = window.setTimeout(
@@ -138,6 +175,27 @@ export function ReceiptDialog({
         } finally {
           if (styleTimeout !== undefined) window.clearTimeout(styleTimeout);
         }
+      }
+      // Match desktop print output pixel-for-pixel to the RawBT receipt raster when canvas is available.
+      try {
+        const existingRaster = copy.querySelector(".receipt-raster") as HTMLImageElement | null;
+        if (!existingRaster) {
+          const rasterSrc =
+            previewRaster?.key === previewKey
+              ? previewRaster.src
+              : await buildReceiptRasterPng(bill, footerText, isReprint);
+          if (rasterSrc) {
+            const rasterImg = printDocument.createElement("img");
+            rasterImg.className = "receipt-raster";
+            rasterImg.src = rasterSrc;
+            rasterImg.alt = bill.bill_number ?? `Receipt #${bill.id}`;
+            if (typeof rasterImg.decode === "function") await rasterImg.decode();
+            copy.dataset.receiptMode = "raster";
+            copy.appendChild(rasterImg);
+          }
+        }
+      } catch {
+        // Keep the CSS-styled HTML receipt when canvas raster rendering is unavailable.
       }
       if (typeof printWindow.print !== "function")
         throw new Error("Printing is not supported in this browser");
@@ -152,7 +210,37 @@ export function ReceiptDialog({
       inFlight.current = false;
       setPrinting(false);
     }
-  }, [bill, isReprint, onLogReprint, onOpenChange, role]);
+  }, [bill, footerText, isReprint, onLogReprint, onOpenChange, previewKey, previewRaster, role]);
+
+  const printRawBt = useCallback(async () => {
+    if (!bill || inFlight.current) return;
+    const version = ++preparationVersion.current;
+    inFlight.current = true;
+    setPrinting(true);
+    setError("");
+    try {
+      const logo = new Image();
+      logo.src = "/images/receipt-logo.png";
+      const logReprint = isReprint && role !== "READ_ONLY" && !reprintLogged.current
+        ? onLogReprint(bill.id).then(() => { reprintLogged.current = true; })
+        : Promise.resolve();
+      await Promise.all([logo.decode(), logReprint]);
+      if (version !== preparationVersion.current) return;
+      const url = rawBtReceiptUrl(bill, footerText, isReprint, logo);
+      const link = document.createElement("a");
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      onOpenChange(false);
+    } catch {
+      if (version === preparationVersion.current)
+        setError("Could not prepare the RawBT receipt. The paid bill is saved; check the printer and try again.");
+    } finally {
+      inFlight.current = false;
+      setPrinting(false);
+    }
+  }, [bill, footerText, isReprint, onLogReprint, onOpenChange, role]);
 
   useEffect(() => {
     if (!open) {
@@ -161,55 +249,82 @@ export function ReceiptDialog({
       preparationVersion.current++;
       return;
     }
-    const android = /Android/i.test(navigator.userAgent);
+    if (preview) return;
+    const android = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
     if (!bill || (!android && settings.isLoading) || attempted.current) return;
     const timer = window.setTimeout(() => {
       if (!attempted.current) {
         attempted.current = true;
-        if (android) {
-          const version = ++preparationVersion.current;
-          setError("");
-          setAndroidPreparing({ bill, reprint: isReprint });
-          void (async () => {
-            try {
-              if (isReprint && role !== "READ_ONLY" && !reprintLogged.current) {
-                await onLogReprint(bill.id);
-                reprintLogged.current = true;
-              }
-              if (document.fonts) {
-                let fontTimeout: number | undefined;
-                try {
-                  await Promise.race([
-                    document.fonts.load('30px "Receipt Lobster"'),
-                    new Promise<void>((resolve) => { fontTimeout = window.setTimeout(resolve, 1500); }),
-                  ]);
-                } finally {
-                  if (fontTimeout !== undefined) window.clearTimeout(fontTimeout);
-                }
-              }
-              if (version !== preparationVersion.current) return;
-              const footer = settings.data ? settings.data.receipt_footer : "Thank you for visiting! Come again.";
-              const logo = new Image();
-              logo.src = "/images/receipt-logo.png";
-              await logo.decode();
-              if (version !== preparationVersion.current) return;
-              setAndroidJob({ bill, reprint: isReprint, url: rawBtReceiptUrl(bill, footer, isReprint, logo) });
-            } catch {
-              if (version === preparationVersion.current)
-                setError("Could not prepare the RawBT receipt. The paid bill is saved; use browser printing or try again.");
-            } finally {
-              if (version === preparationVersion.current) setAndroidPreparing(null);
-            }
-          })();
-        } else {
-          void print();
-        }
+        void (android ? printRawBt() : print());
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [open, bill, settings.isLoading, settings.data, print, isReprint, role, onLogReprint]);
+  }, [open, bill, settings.isLoading, print, printRawBt, preview]);
 
   if (!bill) return null;
+  const android = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
+  if (preview) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="flex max-h-[92vh] max-w-md flex-col overflow-hidden p-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
+            <div>
+              <DialogTitle className="text-base font-bold">
+                Receipt Preview
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                {bill.bill_number ?? `Bill #${bill.id}`}
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-muted/40 p-4">
+            <div ref={receipt} className="mx-auto w-fit max-w-full overflow-hidden rounded-sm bg-white shadow-md">
+              <div
+                className="relative"
+                data-preview-raster={
+                  previewRaster?.key === previewKey ? "true" : undefined
+                }
+              >
+                <ReceiptTemplate
+                  bill={bill}
+                  isReprint={isReprint}
+                  footer={settings.data?.receipt_footer}
+                />
+                {previewRaster?.key === previewKey && (
+                  /* eslint-disable-next-line @next/next/no-img-element -- Exact RawBT raster preview matching thermal output. */
+                  <img
+                    src={previewRaster.src}
+                    alt={bill.bill_number ?? `Receipt #${bill.id}`}
+                    className="receipt-raster-preview"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+          {error && (
+            <div className="border-t border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-card p-4">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+            <Button
+              disabled={printing}
+              onClick={() => void (android ? printRawBt() : print())}
+              className="gap-2"
+            >
+              <Printer size={16} aria-hidden="true" />
+              {printing ? "Preparing print..." : "Print"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <>
       <div ref={receipt} hidden>
@@ -227,19 +342,9 @@ export function ReceiptDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button disabled={printing} onClick={() => void print()}>
-              {androidJob || (typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent)) ? "Use browser printing" : "Retry printing"}
+            <Button disabled={printing} onClick={() => void (android ? printRawBt() : print())}>
+              Retry printing
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={open && !error && ((androidPreparing?.bill === bill && androidPreparing.reprint === isReprint) || (androidJob?.bill === bill && androidJob.reprint === isReprint))} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogTitle>Print receipt</DialogTitle>
-          <DialogDescription>{androidPreparing?.bill === bill && androidPreparing.reprint === isReprint ? "Payment is saved. Preparing the receipt..." : "Send this receipt to your paired printer using RawBT. If RawBT does not open, check that it is installed and configured."}</DialogDescription>
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" onClick={() => void print()} disabled={printing}>Browser print</Button>
-            {androidJob?.bill === bill && androidJob.reprint === isReprint && !androidPreparing && <Button asChild><a href={androidJob.url}>Open RawBT</a></Button>}
           </div>
         </DialogContent>
       </Dialog>

@@ -1,29 +1,24 @@
 "use client";
-import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Bell, Menu, ChefHat, Moon, Sun } from "lucide-react";
+import { Bell, Menu, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserMenu } from "@/components/layout/user-menu";
 import { links } from "@/components/layout/sidebar";
+import { InstallAppButton } from "@/components/layout/InstallAppButton";
 import { useAuth } from "@/providers/auth-provider";
 import { useTheme } from "@/providers/theme-provider";
 import { useNotifications, useStoreSettings } from "@/hooks/queries";
-function subscribe(cb: () => void) {
-  window.addEventListener("online", cb);
-  window.addEventListener("offline", cb);
-  return () => {
-    window.removeEventListener("online", cb);
-    window.removeEventListener("offline", cb);
-  };
-}
+import { DailySales } from "@/components/layout/daily-sales";
+
 export function Topbar({
   title,
   onMenu,
@@ -34,11 +29,6 @@ export function Topbar({
   const { user } = useAuth();
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
-  const online = useSyncExternalStore(
-    subscribe,
-    () => navigator.onLine,
-    () => true,
-  );
   const store = useStoreSettings();
   const { notifications, markRead } = useNotifications(
     user?.role === "ADMIN" || user?.role === "READ_ONLY",
@@ -47,7 +37,7 @@ export function Topbar({
     unread = open.filter((n) => !n.read_at).length;
   return (
     <>
-      <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:h-16 sm:px-6">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-border bg-card px-2 sm:h-16 sm:gap-2 sm:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="ghost"
@@ -57,8 +47,15 @@ export function Topbar({
           >
             <Menu size={21} />
           </Button>
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-white">
-            <ChefHat size={20} />
+          <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 shadow-xs">
+            <Image
+              src="/images/Sambar&SpicyRestaurantLogo.png"
+              alt="Sambar & Spicy Logo"
+              width={40}
+              height={40}
+              className="size-full object-cover"
+              priority
+            />
           </span>
           <div className="hidden min-w-0 sm:block [&_strong]:block [&_strong]:truncate [&_small]:block [&_small]:max-w-44 [&_small]:truncate [&_small]:text-xs [&_small]:font-normal [&_small]:text-muted-foreground">
             <strong>{store.data?.store_name ?? "Sambar & Spicy"}</strong>
@@ -95,17 +92,6 @@ export function Topbar({
               <StatusBadge tone="info">Read-only account</StatusBadge>
             </span>
           )}
-          <span
-            className="inline-flex items-center gap-2 px-1 text-xs text-muted-foreground lg:px-2"
-            aria-label={online ? "Online" : "Offline"}
-          >
-            <i
-              className={`size-2 rounded-full ${online ? "bg-success" : "bg-destructive"}`}
-            />
-            <span className="hidden lg:inline">
-              {online ? "Online" : "Offline"}
-            </span>
-          </span>
           {store.isError && (
             <Button
               variant="ghost"
@@ -118,6 +104,7 @@ export function Topbar({
               !
             </Button>
           )}
+          <InstallAppButton />
           {user?.role !== "BILLING" && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -210,6 +197,7 @@ export function Topbar({
           <UserMenu />
         </div>
       </header>
+      {pathname === "/billing" && user?.role !== "BILLING" && <DailySales />}
     </>
   );
 }

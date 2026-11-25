@@ -68,7 +68,7 @@ export function CustomerMenuTab() {
       <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><QrCode size={22}/></span>
         <div><h2 className="text-lg font-bold">Customer menu QR</h2><p className="mt-1 text-sm text-muted-foreground">Let guests scan and browse your available dishes on their phone.</p></div></div>
       <label htmlFor="customer-menu-url" className="mt-6 block text-sm font-semibold">Customer menu link</label>
-      <div className="mt-2 flex items-center gap-2 rounded-xl border border-input bg-background px-3"><Link2 size={18} className="shrink-0 text-muted-foreground"/><input id="customer-menu-url" type="url" value={link} onChange={e=>changeLink(e.target.value)} placeholder="https://your-website.com/menu" className="min-h-12 min-w-0 flex-1 bg-transparent text-sm outline-none" /></div>
+      <div className="mt-2 flex items-center gap-2 rounded-xl border border-input bg-muted/40 px-3 transition-shadow focus-within:border-ring focus-within:ring-2 focus-within:ring-ring"><Link2 size={18} className="shrink-0 text-muted-foreground"/><input id="customer-menu-url" type="url" value={link} readOnly placeholder="https://your-website.com/menu" className="min-h-12 min-w-0 flex-1 cursor-default border-none bg-transparent text-sm text-foreground/90 outline-none ring-0 focus:outline-none focus:ring-0 select-all" /></div>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">Use the website address customers can reach. Print the QR and display it in your shop. If using a local network address, phones must be on the same network.</p>
       {localOnly && <p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">This link uses localhost, which opens the customer&apos;s own phone. Enter your shop&apos;s reachable website address to download a usable QR.</p>}
       {result.error && <p role="alert" className="mt-3 text-sm text-destructive">{result.error}</p>}
@@ -79,6 +79,9 @@ export function CustomerMenuTab() {
       </div>
     </div>
     <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-6 text-center">
+      {/* The logo sits outside the QR quiet zone to keep the code easy to scan. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/images/customer-menu-logo.png" alt="Sambar & Spicy logo" className="mb-4 size-24 rounded-full border-2 border-[#c9a85b] object-cover" />
       <p className="font-bold">Scan to view the menu</p><p className="mt-1 text-xs text-muted-foreground">Your available dishes, updated regularly</p>
       <div className="mt-5 rounded-2xl border border-[#e2e8f0] bg-white p-4">
         {result.matrix ? <svg role="img" aria-label="Customer menu QR code" width="220" height="220" viewBox={`0 0 ${result.matrix.length + 8} ${result.matrix.length + 8}`} shapeRendering="crispEdges"><rect width="100%" height="100%" fill="white"/>{result.matrix.flatMap((row,y)=>row.map((dark,x)=>dark?<rect key={`${x}-${y}`} x={x+4} y={y+4} width="1" height="1" fill="black"/>:null))}</svg> : <div className="grid size-[220px] place-items-center text-slate-400"><QrCode size={70}/></div>}
